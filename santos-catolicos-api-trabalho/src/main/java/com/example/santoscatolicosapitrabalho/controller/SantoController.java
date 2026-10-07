@@ -1,6 +1,7 @@
 package com.example.santoscatolicosapitrabalho.controller;
 
 import com.example.santoscatolicosapitrabalho.model.Santo;
+import com.example.santoscatolicosapitrabalho.repository.SantoRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -13,16 +14,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/santos")
 public class SantoController {
 
-    private final List<Santo> santos = new ArrayList<>();
-    private int proximoId = 1;
+    private final SantoRepository repository;
+
+    public SantoController(SantoRepository repository) {
+        this.repository = repository;
+    }
 
     @GetMapping
     public ResponseEntity<List<Santo>> listarSantos(
@@ -31,54 +33,43 @@ public class SantoController {
             @RequestParam(required = false) Integer seculo,
             @RequestParam(required = false) Boolean canonizado) {
 
-        List<Santo> resultado = santos.stream()
-                .filter(santo -> nome == null || santo.getNome().toLowerCase().contains(nome.toLowerCase()))
-                .filter(santo -> pais == null || santo.getPais().equalsIgnoreCase(pais))
-                .filter(santo -> seculo == null || santo.getSeculo() == seculo)
-                .filter(santo -> canonizado == null || santo.isCanonizado() == canonizado)
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(resultado);
+        return ResponseEntity.ok(repository.filtrar(nome, pais, seculo, canonizado));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Santo> buscarPorId(@PathVariable int id) {
-        return santos.stream()
-                .filter(santo -> santo.getId() == id)
-                .findFirst()
+    public ResponseEntity<Santo> buscarPorId(@PathVariable Long id) {
+        return repository.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
     public ResponseEntity<Santo> cadastrarSanto(@RequestBody Santo santo) {
-        santo.setId(proximoId);
-        proximoId++;
-        santos.add(santo);
-        return ResponseEntity.status(HttpStatus.CREATED).body(santo);
+        santo.setId(null); // ignora qualquer id enviado: quem gera é o banco
+        Santo salvo = repository.save(santo);
+        return ResponseEntity.status(HttpStatus.CREATED).body(salvo);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Santo> atualizarSanto(@PathVariable int id, @RequestBody Santo santoAtualizado) {
-        for (Santo santo : santos) {
-            if (santo.getId() == id) {
-                santo.setNome(santoAtualizado.getNome());
-                santo.setPais(santoAtualizado.getPais());
-                santo.setSeculo(santoAtualizado.getSeculo());
-                santo.setPadroeiroDe(santoAtualizado.getPadroeiroDe());
-                santo.setCanonizado(santoAtualizado.isCanonizado());
-                return ResponseEntity.ok(santo);
-            }
-        }
-        return ResponseEntity.notFound().build();
+    public ResponseEntity<Santo> atualizarSanto(@PathVariable Long id, @RequestBody Santo santoAtualizado) {
+        return repository.findById(id)
+                .map(santo -> {
+                    santo.setNome(santoAtualizado.getNome());
+                    santo.setPais(santoAtualizado.getPais());
+                    santo.setSeculo(santoAtualizado.getSeculo());
+                    santo.setPadroeiroDe(santoAtualizado.getPadroeiroDe());
+                    santo.setCanonizado(santoAtualizado.isCanonizado());
+                    return ResponseEntity.ok(repository.save(santo));
+                })
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> excluirSanto(@PathVariable int id) {
-        boolean removido = santos.removeIf(santo -> santo.getId() == id);
-        if (removido) {
-            return ResponseEntity.noContent().build();
+    public ResponseEntity<Void> excluirSanto(@PathVariable Long id) {
+        if (!repository.existsById(id)) {
+            return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.notFound().build();
+        repository.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
 }

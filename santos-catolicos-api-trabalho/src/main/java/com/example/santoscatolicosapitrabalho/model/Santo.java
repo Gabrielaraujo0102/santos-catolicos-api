@@ -1,13 +1,21 @@
 package com.example.santoscatolicosapitrabalho.model;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import lombok.Getter;
 import lombok.Setter;
 
+@Entity
 @Getter
 @Setter
 public class Santo {
 
-    private int id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     private String nome;
     private String pais;
     private int seculo;
@@ -17,8 +25,7 @@ public class Santo {
     public Santo() {
     }
 
-    public Santo(int id, String nome, String pais, int seculo, String padroeiroDe, boolean canonizado) {
-        this.id = id;
+    public Santo(String nome, String pais, int seculo, String padroeiroDe, boolean canonizado) {
         this.nome = nome;
         this.pais = pais;
         this.seculo = seculo;
